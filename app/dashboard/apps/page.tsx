@@ -1,12 +1,21 @@
 'use client';
 
-import { useState, useEffect, use } from 'react';
-import { useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import { api } from '@/lib/api';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Badge } from '@/components/ui/badge';
+import { Loader2, X, Copy } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 interface ClientApp {
     id: string;
     name: string;
     client_id: string;
+    client_secret?: string; // Only present on creation
     redirect_uris: string;
     scopes: string;
 }
@@ -51,9 +60,8 @@ export default function AppsPage() {
 
     const fetchScopes = async () => {
         try {
-            const res = await fetch('/api/scopes');
-            const data = await res.json();
-            setAvailableScopes(data);
+            const data = await api.get<Scope[]>('/api/scopes');
+            setAvailableScopes(data || []);
         } catch (err) {
             console.error("Failed to fetch scopes", err);
         }
@@ -61,12 +69,15 @@ export default function AppsPage() {
 
     const fetchApps = async () => {
         try {
-            const res = await fetch('/api/apps');
-            const data = await res.json();
-            setApps(data);
+            const data = await api.get<ClientApp[]>('/api/apps');
+            setApps(data || []);
             setLoading(false);
-        } catch (err: any) {
-            setError(err?.message || 'Failed to load apps');
+        } catch (err: unknown) {
+             if (err instanceof Error) {
+                 setError(err.message);
+            } else {
+                 setError('Failed to load apps');
+            }
             setLoading(false);
         }
     };
@@ -90,20 +101,19 @@ export default function AppsPage() {
         const scopeString = selectedScopes.map(s => s.name).join(' ');
 
         try {
-            const res = await fetch('/api/apps', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ name, redirect_uris: redirectUris, scopes: scopeString }),
-            });
-            const data = await res.json();
+            const data = await api.post<ClientApp>('/api/apps', { name, redirect_uris: redirectUris, scopes: scopeString });
 
             setCreatedApp(data);
             setApps([...apps, data]);
             setName('');
             setRedirectUris('');
             setSelectedScopes([]);
-        } catch (err: any) {
-            setError(err.message || 'Failed to create app');
+        } catch (err: unknown) {
+             if (err instanceof Error) {
+                 setError(err.message);
+            } else {
+                 setError('Failed to create app');
+            }
         } finally {
             setSubmitting(false);
         }
@@ -114,138 +124,166 @@ export default function AppsPage() {
             !selectedScopes.find(s => s.id === scope.id) &&
             scope.name.toLowerCase().includes(searchTerm.toLowerCase())
     );
-    if (loading) return <div className="p-4 text-center text-gray-600">Loading apps...</div>;
+
+    if (loading) return <div className="flex justify-center p-8"><Loader2 className="animate-spin" /></div>;
 
     return (
 
-        <div className="space-y-6 max-w-4xl mx-auto p-4">
-            <h1 className="text-3xl font-bold text-gray-800">OAuth Apps Management</h1>
+        <div className="space-y-6 max-w-5xl mx-auto p-4">
+            <h1 className="text-3xl font-bold tracking-tight">OAuth Apps Management</h1>
 
-            <div className="bg-white p-6 rounded-lg shadow-md border border-gray-200">
-                <h2 className="text-xl font-semibold mb-4 text-gray-800">Register New App</h2>
-                {error && <div className="p-3 mb-4 text-red-700 bg-red-100 rounded-md border border-red-200">{error}</div>}
+            <Card>
+                <CardHeader>
+                    <CardTitle>Register New App</CardTitle>
+                    <CardDescription>Create a new OAuth application.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                    {error && <div className="text-destructive text-sm mb-4">{error}</div>}
 
-                <form onSubmit={handleSubmit} className="space-y-4">
-                    {/* App Name & Redirect URIs Inputs... (Keeping your existing styles) */}
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">App Name</label>
-                        <input type="text" value={name} onChange={(e) => setName(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 outline-none" required />
-                    </div>
-
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Redirect URIs</label>
-                        <input type="text" value={redirectUris} onChange={(e) => setRedirectUris(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 outline-none" required />
-                    </div>
-
-                    {/* IMPROVED SCOPE SELECTION (Tom Select Style) */}
-                    <div className="relative" ref={dropdownRef}>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Scopes</label>
-                        <div
-                            className="min-h-[42px] p-1 flex flex-wrap gap-2 border border-gray-300 rounded-md bg-white cursor-text focus-within:ring-2 focus-within:ring-blue-500 focus-within:border-blue-500"
-                            onClick={() => setIsDropdownOpen(true)}
-                        >
-                            {selectedScopes.map(scope => (
-                                <span key={scope.id} className="flex items-center bg-blue-100 text-blue-800 text-sm px-2 py-1 rounded">
-                                    {scope.name.replaceAll('_', ' ')}
-                                    <button
-                                        type="button"
-                                        onClick={(e) => { e.stopPropagation(); toggleScope(scope); }}
-                                        className="ml-1 hover:text-blue-900 font-bold"
-                                    >
-                                        &times;
-                                    </button>
-                                </span>
-                            ))}
-                            <input
-                                className="flex-1 min-w-[120px] outline-none text-sm p-1"
-                                placeholder={selectedScopes.length === 0 ? "Select scopes..." : ""}
-                                value={searchTerm}
-                                onChange={(e) => { setSearchTerm(e.target.value); setIsDropdownOpen(true); }}
-                                onFocus={() => setIsDropdownOpen(true)}
+                    <form onSubmit={handleSubmit} className="space-y-4">
+                        <div className="space-y-2">
+                            <Label htmlFor="app-name">App Name</Label>
+                            <Input
+                                id="app-name"
+                                value={name}
+                                onChange={(e) => setName(e.target.value)}
+                                required
                             />
                         </div>
 
-                        {isDropdownOpen && filteredOptions.length > 0 && (
-                            <div className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-auto">
-                                {filteredOptions.map(scope => (
-                                    <div
-                                        key={scope.id}
-                                        className="px-4 py-2 hover:bg-blue-50 cursor-pointer text-sm"
-                                        onClick={() => toggleScope(scope)}
-                                    >
-                                        <div className="font-medium text-gray-800">{scope.name.replaceAll('_', ' ')}</div>
-                                        <div className="text-xs text-gray-500">{scope.description}</div>
-                                    </div>
-                                ))}
-                            </div>
-                        )}
-                    </div>
+                        <div className="space-y-2">
+                            <Label htmlFor="redirect-uris">Redirect URIs</Label>
+                            <Input
+                                id="redirect-uris"
+                                value={redirectUris}
+                                onChange={(e) => setRedirectUris(e.target.value)}
+                                placeholder="https://example.com/callback"
+                                required
+                            />
+                        </div>
 
-                    <button
-                        type="submit"
-                        disabled={submitting}
-                        className="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 disabled:opacity-50 transition-all font-medium"
-                    >
-                        {submitting ? 'Registering...' : 'Register App'}
-                    </button>
-                </form>
-            </div>
+                        {/* IMPROVED SCOPE SELECTION */}
+                        <div className="space-y-2" ref={dropdownRef}>
+                            <Label>Scopes</Label>
+                            <div
+                                className={cn(
+                                    "min-h-[42px] p-2 flex flex-wrap gap-2 border rounded-md bg-background focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2",
+                                    isDropdownOpen ? "ring-2 ring-ring ring-offset-2" : ""
+                                )}
+                                onClick={() => setIsDropdownOpen(true)}
+                            >
+                                {selectedScopes.map(scope => (
+                                    <Badge key={scope.id} variant="secondary" className="gap-1 pr-0.5">
+                                        {scope.name.replaceAll('_', ' ')}
+                                        <button
+                                            type="button"
+                                            onClick={(e) => { e.stopPropagation(); toggleScope(scope); }}
+                                            className="ml-1 hover:text-destructive rounded-full p-0.5"
+                                        >
+                                            <X className="h-3 w-3" />
+                                        </button>
+                                    </Badge>
+                                ))}
+                                <input
+                                    className="flex-1 min-w-[120px] bg-transparent outline-none text-sm p-1 placeholder:text-muted-foreground"
+                                    placeholder={selectedScopes.length === 0 ? "Select scopes..." : ""}
+                                    value={searchTerm}
+                                    onChange={(e) => { setSearchTerm(e.target.value); setIsDropdownOpen(true); }}
+                                    onFocus={() => setIsDropdownOpen(true)}
+                                />
+                            </div>
+
+                            {isDropdownOpen && filteredOptions.length > 0 && (
+                                <div className="absolute z-10 w-full max-w-md mt-1 bg-popover border rounded-md shadow-md max-h-60 overflow-auto">
+                                    {filteredOptions.map(scope => (
+                                        <div
+                                            key={scope.id}
+                                            className="px-4 py-2 hover:bg-muted cursor-pointer text-sm"
+                                            onClick={() => toggleScope(scope)}
+                                        >
+                                            <div className="font-medium">{scope.name.replaceAll('_', ' ')}</div>
+                                            <div className="text-xs text-muted-foreground">{scope.description}</div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+
+                        <Button type="submit" disabled={submitting} className="w-full">
+                            {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                            {submitting ? 'Registering...' : 'Register App'}
+                        </Button>
+                    </form>
+                </CardContent>
+            </Card>
 
             {/* Success Message with Credentials */}
             {createdApp && (
-                <div className="bg-green-50 p-6 rounded-lg border border-green-200 shadow-sm">
-                    <h3 className="text-lg font-semibold text-green-800 mb-2">App Created Successfully!</h3>
-                    <p className="text-sm text-green-700 mb-4">Please copy your Client Secret now. It will not be shown again.</p>
+                <div className="bg-green-50 dark:bg-green-900/20 p-6 rounded-lg border border-green-200 dark:border-green-800 shadow-sm">
+                    <h3 className="text-lg font-semibold text-green-800 dark:text-green-300 mb-2">App Created Successfully!</h3>
+                    <p className="text-sm text-green-700 dark:text-green-400 mb-4">Please copy your Client Secret now. It will not be shown again.</p>
 
                     <div className="space-y-3">
                         <div>
-                            <span className="block text-xs font-medium text-gray-500 uppercase tracking-wider">Client ID</span>
-                            <div className="mt-1 flex items-center bg-white border border-gray-300 rounded-md px-3 py-2">
-                                <code className="flex-1 text-sm text-gray-800 break-all">{createdApp.client_id}</code>
+                            <span className="block text-xs font-medium text-muted-foreground uppercase tracking-wider">Client ID</span>
+                            <div className="mt-1 flex items-center bg-muted/50 border rounded-md px-3 py-2">
+                                <code className="flex-1 text-sm break-all">{createdApp.client_id}</code>
+                                <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => navigator.clipboard.writeText(createdApp.client_id)}>
+                                    <Copy className="h-3 w-3" />
+                                </Button>
                             </div>
                         </div>
-                        <div>
-                            <span className="block text-xs font-medium text-gray-500 uppercase tracking-wider">Client Secret</span>
-                            <div className="mt-1 flex items-center bg-white border border-red-200 rounded-md px-3 py-2">
-                                <code className="flex-1 text-sm text-red-600 font-bold break-all">{createdApp.client_secret}</code>
+                        {createdApp.client_secret && (
+                            <div>
+                                <span className="block text-xs font-medium text-muted-foreground uppercase tracking-wider">Client Secret</span>
+                                <div className="mt-1 flex items-center bg-muted/50 border border-destructive/20 rounded-md px-3 py-2">
+                                    <code className="flex-1 text-sm text-destructive font-bold break-all">{createdApp.client_secret}</code>
+                                    <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => navigator.clipboard.writeText(createdApp.client_secret || '')}>
+                                        <Copy className="h-3 w-3" />
+                                    </Button>
+                                </div>
                             </div>
-                        </div>
+                        )}
                     </div>
                 </div>
             )}
 
             {/* List Apps */}
-            <div className="bg-white p-6 rounded-lg shadow-md border border-gray-200">
-                <h2 className="text-xl font-semibold mb-4 text-gray-800">Your Apps</h2>
-                {apps.length === 0 ? (
-                    <div className="text-center py-8 bg-gray-50 rounded-lg border border-dashed border-gray-300">
-                        <p className="text-gray-500 italic">No apps registered yet.</p>
-                    </div>
-                ) : (
-                    <div className="overflow-x-auto rounded-lg border border-gray-200">
-                        <table className="min-w-full divide-y divide-gray-200">
-                            <thead className="bg-gray-50">
-                                <tr>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Client ID</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Redirect URIs</th>
-                                </tr>
-                            </thead>
-                            <tbody className="bg-white divide-y divide-gray-200">
-                                {apps.map((app) => (
-                                    <tr key={app.id} className="hover:bg-gray-50 transition-colors">
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{app.name}</td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 font-mono text-xs">{app.client_id}</td>
-                                        <td className="px-6 py-4 text-sm text-gray-500 max-w-xs truncate" title={app.redirect_uris}>
-                                            {app.redirect_uris}
-                                        </td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
-                )}
-            </div>
+            <Card>
+                <CardHeader>
+                    <CardTitle>Your Apps</CardTitle>
+                </CardHeader>
+                <CardContent>
+                    {apps.length === 0 ? (
+                        <div className="text-center py-8 border rounded-md border-dashed">
+                            <p className="text-muted-foreground italic">No apps registered yet.</p>
+                        </div>
+                    ) : (
+                        <div className="rounded-md border">
+                            <Table>
+                                <TableHeader>
+                                    <TableRow>
+                                        <TableHead>Name</TableHead>
+                                        <TableHead>Client ID</TableHead>
+                                        <TableHead>Redirect URIs</TableHead>
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    {apps.map((app) => (
+                                        <TableRow key={app.id}>
+                                            <TableCell className="font-medium">{app.name}</TableCell>
+                                            <TableCell className="font-mono text-xs">{app.client_id}</TableCell>
+                                            <TableCell className="max-w-xs truncate" title={app.redirect_uris}>
+                                                {app.redirect_uris}
+                                            </TableCell>
+                                        </TableRow>
+                                    ))}
+                                </TableBody>
+                            </Table>
+                        </div>
+                    )}
+                </CardContent>
+            </Card>
         </div>
     );
 }
