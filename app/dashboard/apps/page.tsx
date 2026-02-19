@@ -15,7 +15,7 @@ interface ClientApp {
     id: string;
     name: string;
     client_id: string;
-    client_secret?: string; // Only present on creation
+    client_secret?: string;
     redirect_uris: string;
     scopes: string;
 }
@@ -73,10 +73,10 @@ export default function AppsPage() {
             setApps(data || []);
             setLoading(false);
         } catch (err: unknown) {
-             if (err instanceof Error) {
-                 setError(err.message);
+            if (err instanceof Error) {
+                setError(err.message);
             } else {
-                 setError('Failed to load apps');
+                setError('Failed to load apps');
             }
             setLoading(false);
         }
@@ -109,10 +109,10 @@ export default function AppsPage() {
             setRedirectUris('');
             setSelectedScopes([]);
         } catch (err: unknown) {
-             if (err instanceof Error) {
-                 setError(err.message);
+            if (err instanceof Error) {
+                setError(err.message);
             } else {
-                 setError('Failed to create app');
+                setError('Failed to create app');
             }
         } finally {
             setSubmitting(false);

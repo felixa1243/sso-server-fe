@@ -15,9 +15,9 @@ export async function POST(req: NextRequest) {
 
         const apiUrl = process.env.NEXT_PUBLIC_AUTH_API_URL;
         if (!apiUrl) {
-             // Fallback or error if env not set
-             console.error("NEXT_PUBLIC_AUTH_API_URL is not defined");
-             return NextResponse.json(
+            // Fallback or error if env not set
+            console.error("NEXT_PUBLIC_AUTH_API_URL is not defined");
+            return NextResponse.json(
                 { message: 'Server configuration error' },
                 { status: 500 }
             );
@@ -47,10 +47,10 @@ export async function POST(req: NextRequest) {
             secure: process.env.NODE_ENV === 'production',
             sameSite: 'lax',
             path: '/',
-            maxAge: 60 * 60 * 24 * 7, // 1 week
+            maxAge: 60 * 60 * 24 * 7,
         });
 
-        return NextResponse.json({ message: 'Login successful' });
+        return NextResponse.json(data);
     } catch (err: unknown) {
         console.error('Login error:', err);
         return NextResponse.json(

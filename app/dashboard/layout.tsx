@@ -12,7 +12,7 @@ import {
     DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Menu, Home, LogOut, Settings, User, Package2 } from 'lucide-react';
+import { Menu, Home, LogOut, Package2 } from 'lucide-react';
 import Link from 'next/link';
 import { api } from '@/lib/api';
 import { cn } from '@/lib/utils';
@@ -30,11 +30,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             console.error('Logout failed', err);
         }
     };
-
+    const avatar = localStorage.getItem('avatar_uri');
     const navLinks = [
         { href: '/dashboard', label: 'Dashboard', icon: Home },
-        { href: '/profile', label: 'Profile', icon: User },
-        { href: '/settings', label: 'Settings', icon: Settings },
+        { href: '/dashboard/apps', label: 'Apps', icon: Package2 },
+        { href: '/dashboard/domains', label: 'Domains', icon: Package2 },
     ];
 
     return (
@@ -44,7 +44,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                     <div className="flex h-14 items-center border-b px-4 lg:h-[60px] lg:px-6">
                         <Link href="/" className="flex items-center gap-2 font-semibold">
                             <Package2 className="h-6 w-6" />
-                            <span className="">Acme Inc</span>
+                            <span className="">Iqbal SSO</span>
                         </Link>
                     </div>
                     <div className="flex-1">
@@ -104,7 +104,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                         <DropdownMenuTrigger asChild>
                             <Button variant="secondary" size="icon" className="rounded-full">
                                 <Avatar className='h-9 w-9'>
-                                    <AvatarImage src="/placeholder-user.jpg" alt="@user" />
+                                    <AvatarImage src={`${process.env.NEXT_PUBLIC_AUTH_API_URL}${avatar}` || ''} alt="@user" />
                                     <AvatarFallback>U</AvatarFallback>
                                 </Avatar>
                                 <span className="sr-only">Toggle user menu</span>

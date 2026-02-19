@@ -9,6 +9,18 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Loader2 } from 'lucide-react';
 
+
+
+interface User {
+    fullname: string;
+    email: string;
+    role: string;
+    avatar_uri: string;
+}
+interface LoginResponse {
+    access_token: string;
+    user: User;
+}
 export default function LoginPage() {
     const router = useRouter();
     const [email, setEmail] = useState('');
@@ -22,9 +34,10 @@ export default function LoginPage() {
         setLoading(true);
 
         try {
-            await api.post('/api/auth/login', { email, password });
+            const data = await api.post<LoginResponse>('/api/auth/login', { email, password });
+            localStorage.setItem('avatar_uri', data.user.avatar_uri);
             router.push('/dashboard');
-            router.refresh(); // Refresh to update middleware/server state
+            router.refresh();
         } catch (err: unknown) {
             console.error(err);
             if (err instanceof Error) {
