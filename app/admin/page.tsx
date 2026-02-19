@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { get, del, put } from '../../utils/api';
+import { api } from '@/lib/api';
 
 interface Role {
     Name: string;
@@ -22,43 +22,52 @@ export default function AdminPage() {
     const router = useRouter();
 
     useEffect(() => {
-        const token = localStorage.getItem('token');
-        if (!token) {
-            router.push('/login');
-            return;
-        }
-
-        get('/admin/users', token)
+        api.get<User[]>('/api/admin/users')
             .then(data => {
-                setUsers(data);
+                setUsers(data || []);
                 setLoading(false);
             })
-            .catch(err => {
+            .catch((err: unknown) => {
                 console.error(err);
-                setError(err.message);
+                if (err instanceof Error) {
+                    setError(err.message);
+                } else {
+                    setError('Failed to load users');
+                }
                 setLoading(false);
             });
-    }, [router]);
+    }, []);
 
     const handleDelete = async (id: string) => {
         if (!confirm('Are you sure you want to delete this user?')) return;
-        const token = localStorage.getItem('token') || '';
         try {
-            await del(`/admin/users/${id}`, token);
+            await api.delete(`/api/admin/users/${id}`);
             setUsers(users.filter(u => u.ID !== id));
-        } catch (err: any) {
-            alert(err.message);
+        } catch (err: unknown) {
+            if (err instanceof Error) {
+                alert(err.message);
+            }
         }
     };
 
     const handleBan = async (id: string, isBanned: boolean) => {
-        const token = localStorage.getItem('token') || '';
-        const endpoint = isBanned ? `/admin/users/${id}/unban` : `/admin/users/${id}/ban`;
+        const endpoint = isBanned ? `/api/admin/users/${id}/unban` : `/api/admin/users/${id}/ban`;
         try {
-            await put(endpoint, token);
+            await api.put(endpoint, {});
             setUsers(users.map(u => u.ID === id ? { ...u, IsBanned: !isBanned } : u));
-        } catch (err: any) {
-            alert(err.message);
+        } catch (err: unknown) {
+            if (err instanceof Error) {
+                alert(err.message);
+            }
+        }
+    };
+
+    const handleLogout = async () => {
+        try {
+            await api.post('/api/auth/logout', {});
+            router.push('/login');
+        } catch (err) {
+            console.error(err);
         }
     };
 
@@ -83,11 +92,7 @@ export default function AdminPage() {
                         >
                             OAuth Clients
                         </button>
-                        <button onClick={() => {
-                            localStorage.removeItem('token');
-                            localStorage.removeItem('user');
-                            router.push('/login');
-                        }} className="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600 transition">Logout</button>
+                        <button onClick={handleLogout} className="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600 transition">Logout</button>
                     </div>
                 </div>
 

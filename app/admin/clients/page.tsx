@@ -1,8 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { get, post, del } from '../../../utils/api';
+import { api } from '@/lib/api';
 
 interface ClientApp {
     ID: string;
@@ -10,6 +9,10 @@ interface ClientApp {
     RedirectURIs: string;
     AllowedScopes: string;
     Secret?: string; // Only shown on creation
+}
+
+interface NewClientResponse extends ClientApp {
+    secret?: string;
 }
 
 export default function ClientsPage() {
@@ -21,52 +24,47 @@ export default function ClientsPage() {
         scopes: ''
     });
     const [createdSecret, setCreatedSecret] = useState('');
-    const router = useRouter();
 
     useEffect(() => {
-        const token = localStorage.getItem('token');
-        if (!token) {
-            router.push('/login');
-            return;
-        }
-
-        get('/admin/clients', token)
+        api.get<ClientApp[]>('/api/admin/clients')
             .then(data => {
-                setClients(data);
+                setClients(data || []);
                 setLoading(false);
             })
             .catch(err => {
                 console.error(err);
                 setLoading(false);
             });
-    }, [router]);
+    }, []);
 
     const handleCreate = async () => {
-        const token = localStorage.getItem('token') || '';
         try {
-            const result = await post('/admin/clients', token, newClient);
+            const result = await api.post<NewClientResponse>('/api/admin/clients', newClient);
             // Result should contain client object and 'secret' (plain text)
             if (result.secret) {
                 setCreatedSecret(result.secret);
                 alert(`Client created! SECRET: ${result.secret} (Save this now!)`);
             }
             // Refresh list
-            const updated = await get('/admin/clients', token);
-            setClients(updated);
+            const updated = await api.get<ClientApp[]>('/api/admin/clients');
+            setClients(updated || []);
             setNewClient({ name: '', redirect_uris: '', scopes: '' });
-        } catch (err: any) {
-            alert(err.message);
+        } catch (err: unknown) {
+             if (err instanceof Error) {
+                alert(err.message);
+            }
         }
     };
 
     const handleDelete = async (id: string) => {
         if (!confirm('Delete this client app?')) return;
-        const token = localStorage.getItem('token') || '';
         try {
-            await del(`/admin/clients/${id}`, token);
+            await api.delete(`/api/admin/clients/${id}`);
             setClients(clients.filter(c => c.ID !== id));
-        } catch (err: any) {
-            alert(err.message);
+        } catch (err: unknown) {
+             if (err instanceof Error) {
+                alert(err.message);
+            }
         }
     };
 

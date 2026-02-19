@@ -1,6 +1,13 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { api } from '@/lib/api';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { ExternalLink, Loader2 } from 'lucide-react';
 
 interface Domain {
     ID: string;
@@ -18,19 +25,24 @@ export default function DomainsPage() {
     const [submitting, setSubmitting] = useState(false);
 
     useEffect(() => {
-        fetch('/api/domains')
-            .then(el => el.json())
-            .then(el => {
-                console.log(el)
-                setDomains(el || [])
-                setLoading(false)
-            })
-            .catch((err: any) => {
-                console.error(err);
-                setError(err.message || 'Failed to load domains');
-                setLoading(false);
-            })
+        fetchDomains();
     }, []);
+
+    const fetchDomains = async () => {
+        try {
+            const data = await api.get<Domain[]>('/api/domains');
+            setDomains(data || []);
+        } catch (err: unknown) {
+            console.error(err);
+             if (err instanceof Error) {
+                 setError(err.message);
+            } else {
+                 setError('Failed to load domains');
+            }
+        } finally {
+            setLoading(false);
+        }
+    };
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -38,115 +50,108 @@ export default function DomainsPage() {
         setError('');
 
         try {
-            fetch('/api/domains', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ name, url }),
-            }).then(res => res.json()).then(res => {
-                const newDomain = {
-                    ID: res.ID,
-                    Name: res.Name,
-                    URL: res.URL,
-                    CreatedAt: res.CreatedAt,
-                };
-                setDomains([...domains, newDomain]);
-                setName('');
-                setUrl('');
-            })
-        } catch (err: any) {
-            setError(err.message || 'Failed to create domain');
+            const res = await api.post<Domain>('/api/domains', { name, url });
+            setDomains([...domains, res]);
+            setName('');
+            setUrl('');
+        } catch (err: unknown) {
+             if (err instanceof Error) {
+                 setError(err.message);
+            } else {
+                 setError('Failed to create domain');
+            }
         } finally {
             setSubmitting(false);
         }
     };
 
-    if (loading) return <div className="p-4 text-center text-gray-600">Loading domains...</div>;
+    if (loading) return <div className="flex justify-center p-8"><Loader2 className="animate-spin" /></div>;
 
     return (
-        <div className="space-y-6 max-w-4xl mx-auto">
-            <h1 className="text-3xl font-bold text-gray-800">Domain Management</h1>
+        <div className="space-y-6 max-w-5xl mx-auto">
+            <h1 className="text-3xl font-bold tracking-tight">Domain Management</h1>
 
-            {/* Registration Form */}
-            <div className="bg-white p-6 rounded-lg shadow-md border border-gray-200">
-                <h2 className="text-xl font-semibold mb-4 text-gray-800">Register New Domain</h2>
-                {error && <div className="p-3 mb-4 text-red-700 bg-red-100 rounded-md border border-red-200">{error}</div>}
+            <div className="grid gap-6 md:grid-cols-2">
+                 <Card>
+                    <CardHeader>
+                        <CardTitle>Register New Domain</CardTitle>
+                        <CardDescription>Enter the details for your new domain.</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        {error && <div className="text-destructive text-sm mb-4">{error}</div>}
+                        <form onSubmit={handleSubmit} className="space-y-4">
+                            <div className="space-y-2">
+                                <Label htmlFor="name">Domain Name</Label>
+                                <Input
+                                    id="name"
+                                    value={name}
+                                    onChange={(e) => setName(e.target.value)}
+                                    placeholder="e.g., mysite"
+                                    required
+                                />
+                                <p className="text-xs text-muted-foreground">Unique identifier for your domain.</p>
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="url">Domain URL</Label>
+                                <Input
+                                    type="url"
+                                    id="url"
+                                    value={url}
+                                    onChange={(e) => setUrl(e.target.value)}
+                                    placeholder="https://mysite.com"
+                                    required
+                                />
+                                <p className="text-xs text-muted-foreground">Full URL of your application.</p>
+                            </div>
+                            <Button type="submit" disabled={submitting} className="w-full">
+                                {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                {submitting ? 'Registering...' : 'Register Domain'}
+                            </Button>
+                        </form>
+                    </CardContent>
+                </Card>
 
-                <form onSubmit={handleSubmit} className="space-y-4">
-                    <div>
-                        <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">Domain Name</label>
-                        <input
-                            type="text"
-                            id="name"
-                            value={name}
-                            onChange={(e) => setName(e.target.value)}
-                            placeholder="e.g., mysite"
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-                            required
-                        />
-                        <p className="text-xs text-gray-500 mt-1">Unique identifier for your domain.</p>
-                    </div>
-                    <div>
-                        <label htmlFor="url" className="block text-sm font-medium text-gray-700 mb-1">Domain URL</label>
-                        <input
-                            type="url"
-                            id="url"
-                            value={url}
-                            onChange={(e) => setUrl(e.target.value)}
-                            placeholder="https://mysite.com"
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-                            required
-                        />
-                        <p className="text-xs text-gray-500 mt-1">Full URL of your application.</p>
-                    </div>
-                    <button
-                        type="submit"
-                        disabled={submitting}
-                        className="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm font-medium"
-                    >
-                        {submitting ? 'Registering...' : 'Register Domain'}
-                    </button>
-                </form>
-            </div>
-
-            {/* List Domains */}
-            <div className="bg-white p-6 rounded-lg shadow-md border border-gray-200">
-                <h2 className="text-xl font-semibold mb-4 text-gray-800">Your Domains</h2>
-                {domains.length === 0 ? (
-                    <div className="text-center py-8 bg-gray-50 rounded-lg border border-dashed border-gray-300">
-                        <p className="text-gray-500 italic">No domains registered yet.</p>
-                        <p className="text-sm text-gray-400 mt-1">Use the form above to register your first domain.</p>
-                    </div>
-                ) : (
-                    <div className="overflow-x-auto rounded-lg border border-gray-200">
-                        <table className="min-w-full divide-y divide-gray-200">
-                            <thead className="bg-gray-50">
-                                <tr>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">URL</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Created At</th>
-                                </tr>
-                            </thead>
-                            <tbody className="bg-white divide-y divide-gray-200">
-                                {domains.map((domain) => (
-                                    <tr key={domain.ID} className="hover:bg-gray-50 transition-colors">
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{domain.Name}</td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                            <a href={domain.URL} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-800 hover:underline inline-flex items-center gap-1">
-                                                {domain.URL}
-                                                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path></svg>
-                                            </a>
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                            {new Date(domain.CreatedAt).toLocaleDateString()}
-                                        </td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
-                )}
+                <Card>
+                    <CardHeader>
+                        <CardTitle>Your Domains</CardTitle>
+                        <CardDescription>List of domains you have registered.</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                         {domains.length === 0 ? (
+                            <div className="text-center py-8 border rounded-md border-dashed">
+                                <p className="text-muted-foreground italic">No domains registered yet.</p>
+                            </div>
+                        ) : (
+                            <div className="rounded-md border">
+                                <Table>
+                                    <TableHeader>
+                                        <TableRow>
+                                            <TableHead>Name</TableHead>
+                                            <TableHead>URL</TableHead>
+                                            <TableHead>Created At</TableHead>
+                                        </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                        {domains.map((domain) => (
+                                            <TableRow key={domain.ID}>
+                                                <TableCell className="font-medium">{domain.Name}</TableCell>
+                                                <TableCell>
+                                                    <a href={domain.URL} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline inline-flex items-center gap-1">
+                                                        {domain.URL}
+                                                        <ExternalLink className="h-3 w-3" />
+                                                    </a>
+                                                </TableCell>
+                                                <TableCell>
+                                                    {new Date(domain.CreatedAt).toLocaleDateString()}
+                                                </TableCell>
+                                            </TableRow>
+                                        ))}
+                                    </TableBody>
+                                </Table>
+                            </div>
+                        )}
+                    </CardContent>
+                </Card>
             </div>
         </div>
     );
