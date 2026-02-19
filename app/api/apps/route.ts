@@ -14,7 +14,7 @@ export async function POST(request: NextRequest) {
         body: JSON.stringify(body),
     });
     const dataJson = await data.json();
-    return NextResponse.json(dataJson.data);
+    return NextResponse.json(dataJson);
 }
 
 export async function GET() {

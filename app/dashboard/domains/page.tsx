@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { get, post } from '../../../utils/api';
 
 interface Domain {
     ID: string;
@@ -38,18 +37,24 @@ export default function DomainsPage() {
         setSubmitting(true);
         setError('');
 
-        const token = localStorage.getItem('token');
-        if (!token) {
-            setError('Not authenticated');
-            setSubmitting(false);
-            return;
-        }
-
         try {
-            const newDomain = await post('/domains', { name, url }, token);
-            setDomains([...domains, newDomain]);
-            setName('');
-            setUrl('');
+            fetch('/api/domains', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ name, url }),
+            }).then(res => res.json()).then(res => {
+                const newDomain = {
+                    ID: res.ID,
+                    Name: res.Name,
+                    URL: res.URL,
+                    CreatedAt: res.CreatedAt,
+                };
+                setDomains([...domains, newDomain]);
+                setName('');
+                setUrl('');
+            })
         } catch (err: any) {
             setError(err.message || 'Failed to create domain');
         } finally {
