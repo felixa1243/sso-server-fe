@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { get, post } from '../../../utils/api';
+import { useState, useEffect, use } from 'react';
+import { useRef } from 'react';
 
 interface ClientApp {
     id: string;
@@ -11,40 +11,73 @@ interface ClientApp {
     scopes: string;
 }
 
-interface NewClientApp extends ClientApp {
-    client_secret: string;
+interface Scope {
+    id: string;
+    name: string;
+    description: string
 }
 
 export default function AppsPage() {
     const [apps, setApps] = useState<ClientApp[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
-    const [createdApp, setCreatedApp] = useState(null);
+    const [createdApp, setCreatedApp] = useState<ClientApp | null>(null);
 
     // Form state
     const [name, setName] = useState('');
     const [redirectUris, setRedirectUris] = useState('');
-    const [scopes, setScopes] = useState('openid profile email');
     const [submitting, setSubmitting] = useState(false);
+
+    // Scope states
+    const [availableScopes, setAvailableScopes] = useState<Scope[]>([]);
+    const [selectedScopes, setSelectedScopes] = useState<Scope[]>([]);
+    const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+    const [searchTerm, setSearchTerm] = useState('');
+    const dropdownRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
         fetchApps();
+        fetchScopes();
+
+        // Close dropdown when clicking outside
+        const handleClickOutside = (event: MouseEvent) => {
+            if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+                setIsDropdownOpen(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
 
-    const fetchApps = () => {
-        fetch('/api/apps', {
-            method: 'GET',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-        }).then(res => res.json()).then(data => {
+    const fetchScopes = async () => {
+        try {
+            const res = await fetch('/api/scopes');
+            const data = await res.json();
+            setAvailableScopes(data);
+        } catch (err) {
+            console.error("Failed to fetch scopes", err);
+        }
+    };
+
+    const fetchApps = async () => {
+        try {
+            const res = await fetch('/api/apps');
+            const data = await res.json();
             setApps(data);
             setLoading(false);
-        }).catch(err => {
-            console.error(err);
+        } catch (err: any) {
             setError(err?.message || 'Failed to load apps');
             setLoading(false);
-        })
+        }
+    };
+
+    const toggleScope = (scope: Scope) => {
+        if (selectedScopes.find(s => s.id === scope.id)) {
+            setSelectedScopes(selectedScopes.filter(s => s.id !== scope.id));
+        } else {
+            setSelectedScopes([...selectedScopes, scope]);
+        }
+        setSearchTerm('');
     };
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -52,20 +85,23 @@ export default function AppsPage() {
         setSubmitting(true);
         setError('');
         setCreatedApp(null);
+
+        // Convert array of objects back to space-separated string for API
+        const scopeString = selectedScopes.map(s => s.name).join(' ');
+
         try {
-            fetch('/api/apps', {
+            const res = await fetch('/api/apps', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ name, redirect_uris: redirectUris, scopes }),
-            }).then(res => res.json()).then(res => {
-                setCreatedApp(res)
-                setApps([...apps, res])
-                setName('');
-                setRedirectUris('');
-                setScopes('openid profile email');
-            })
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name, redirect_uris: redirectUris, scopes: scopeString }),
+            });
+            const data = await res.json();
+
+            setCreatedApp(data);
+            setApps([...apps, data]);
+            setName('');
+            setRedirectUris('');
+            setSelectedScopes([]);
         } catch (err: any) {
             setError(err.message || 'Failed to create app');
         } finally {
@@ -73,60 +109,82 @@ export default function AppsPage() {
         }
     };
 
+    const filteredOptions = availableScopes.filter(
+        scope =>
+            !selectedScopes.find(s => s.id === scope.id) &&
+            scope.name.toLowerCase().includes(searchTerm.toLowerCase())
+    );
     if (loading) return <div className="p-4 text-center text-gray-600">Loading apps...</div>;
 
     return (
-        <div className="space-y-6 max-w-4xl mx-auto">
+
+        <div className="space-y-6 max-w-4xl mx-auto p-4">
             <h1 className="text-3xl font-bold text-gray-800">OAuth Apps Management</h1>
 
-            {/* Registration Form */}
             <div className="bg-white p-6 rounded-lg shadow-md border border-gray-200">
                 <h2 className="text-xl font-semibold mb-4 text-gray-800">Register New App</h2>
                 {error && <div className="p-3 mb-4 text-red-700 bg-red-100 rounded-md border border-red-200">{error}</div>}
 
                 <form onSubmit={handleSubmit} className="space-y-4">
+                    {/* App Name & Redirect URIs Inputs... (Keeping your existing styles) */}
                     <div>
-                        <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">App Name</label>
-                        <input
-                            type="text"
-                            id="name"
-                            value={name}
-                            onChange={(e) => setName(e.target.value)}
-                            placeholder="My Awesome App"
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-                            required
-                        />
+                        <label className="block text-sm font-medium text-gray-700 mb-1">App Name</label>
+                        <input type="text" value={name} onChange={(e) => setName(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 outline-none" required />
                     </div>
+
                     <div>
-                        <label htmlFor="redirectUris" className="block text-sm font-medium text-gray-700 mb-1">Redirect URIs</label>
-                        <input
-                            type="text"
-                            id="redirectUris"
-                            value={redirectUris}
-                            onChange={(e) => setRedirectUris(e.target.value)}
-                            placeholder="https://myapp.com/callback, http://localhost:3000/callback"
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-                            required
-                        />
-                        <p className="text-xs text-gray-500 mt-1">Comma-separated list of allowed callback URLs.</p>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Redirect URIs</label>
+                        <input type="text" value={redirectUris} onChange={(e) => setRedirectUris(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 outline-none" required />
                     </div>
-                    <div>
-                        <label htmlFor="scopes" className="block text-sm font-medium text-gray-700 mb-1">Scopes</label>
-                        <input
-                            type="text"
-                            id="scopes"
-                            value={scopes}
-                            onChange={(e) => setScopes(e.target.value)}
-                            placeholder="openid profile email"
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-                            required
-                        />
-                        <p className="text-xs text-gray-500 mt-1">Space-separated list of scopes.</p>
+
+                    {/* IMPROVED SCOPE SELECTION (Tom Select Style) */}
+                    <div className="relative" ref={dropdownRef}>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Scopes</label>
+                        <div
+                            className="min-h-[42px] p-1 flex flex-wrap gap-2 border border-gray-300 rounded-md bg-white cursor-text focus-within:ring-2 focus-within:ring-blue-500 focus-within:border-blue-500"
+                            onClick={() => setIsDropdownOpen(true)}
+                        >
+                            {selectedScopes.map(scope => (
+                                <span key={scope.id} className="flex items-center bg-blue-100 text-blue-800 text-sm px-2 py-1 rounded">
+                                    {scope.name.replaceAll('_', ' ')}
+                                    <button
+                                        type="button"
+                                        onClick={(e) => { e.stopPropagation(); toggleScope(scope); }}
+                                        className="ml-1 hover:text-blue-900 font-bold"
+                                    >
+                                        &times;
+                                    </button>
+                                </span>
+                            ))}
+                            <input
+                                className="flex-1 min-w-[120px] outline-none text-sm p-1"
+                                placeholder={selectedScopes.length === 0 ? "Select scopes..." : ""}
+                                value={searchTerm}
+                                onChange={(e) => { setSearchTerm(e.target.value); setIsDropdownOpen(true); }}
+                                onFocus={() => setIsDropdownOpen(true)}
+                            />
+                        </div>
+
+                        {isDropdownOpen && filteredOptions.length > 0 && (
+                            <div className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-auto">
+                                {filteredOptions.map(scope => (
+                                    <div
+                                        key={scope.id}
+                                        className="px-4 py-2 hover:bg-blue-50 cursor-pointer text-sm"
+                                        onClick={() => toggleScope(scope)}
+                                    >
+                                        <div className="font-medium text-gray-800">{scope.name.replaceAll('_', ' ')}</div>
+                                        <div className="text-xs text-gray-500">{scope.description}</div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
                     </div>
+
                     <button
                         type="submit"
                         disabled={submitting}
-                        className="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm font-medium"
+                        className="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 disabled:opacity-50 transition-all font-medium"
                     >
                         {submitting ? 'Registering...' : 'Register App'}
                     </button>
