@@ -30,7 +30,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             console.error('Logout failed', err);
         }
     };
-    const avatar = localStorage.getItem('avatar_uri');
+    const avatar = typeof window !== 'undefined' ? localStorage.getItem('avatar_uri') : null;
     const navLinks = [
         { href: '/dashboard', label: 'Dashboard', icon: Home },
         { href: '/dashboard/apps', label: 'Apps', icon: Package2 },
@@ -113,7 +113,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                         <DropdownMenuContent align="end">
                             <DropdownMenuLabel>My Account</DropdownMenuLabel>
                             <DropdownMenuSeparator />
-                            <DropdownMenuItem onClick={() => router.push('/settings')}>Settings</DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => router.push('/dashboard/settings')}>Settings</DropdownMenuItem>
                             <DropdownMenuSeparator />
                             <DropdownMenuItem onClick={handleLogout}>
                                 <LogOut className="mr-2 h-4 w-4" />
