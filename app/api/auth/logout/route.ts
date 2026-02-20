@@ -1,17 +1,10 @@
+import { serverApi } from '@/lib/serverApi';
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
 
 export async function POST() {
     try {
-        const apiUrl = process.env.NEXT_PUBLIC_AUTH_API_URL;
-        if (apiUrl) {
-            await fetch(`${apiUrl}/logout`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-            }).catch(() => {}); // Ignore errors on logout
-        }
+        await serverApi.post(`/logout`, {}).catch(() => { }); // Ignore errors on logout
 
         const cookieStore = await cookies();
         cookieStore.delete('access_token');

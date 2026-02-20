@@ -1,15 +1,16 @@
-import { cookies } from "next/headers";
+import { serverApi, withAuth } from "@/lib/serverApi";
+import axios from "axios";
 import { NextResponse } from "next/server";
 
 export async function GET() {
-    const cookieStore = await cookies();
-    const token = cookieStore.get('access_token')?.value;
-    const data = await fetch(`${process.env.NEXT_PUBLIC_AUTH_API_URL}/scopes`, {
-        method: 'GET',
-        headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`,
-        },
-    });
-    return NextResponse.json(await data.json());
+    try {
+        const authConfig = await withAuth();
+        const res = await serverApi.get(`/scopes`, authConfig);
+        return NextResponse.json(res.data);
+    } catch (error) {
+        if (axios.isAxiosError(error) && error.response) {
+            return NextResponse.json(error.response.data, { status: error.response.status });
+        }
+        return NextResponse.json({ message: "Internal server error" }, { status: 500 });
+    }
 }

@@ -1,45 +1,36 @@
+import axios from 'axios';
+
 export async function apiRequest<T>(
   url: string,
   method: 'GET' | 'POST' | 'PUT' | 'DELETE',
-  body?: unknown,
+  data?: unknown,
   headers: Record<string, string> = {}
 ): Promise<T> {
-  const config: RequestInit = {
-    method,
-    headers: {
-      'Content-Type': 'application/json',
-      ...headers,
-    },
-  };
-
-  if (body) {
-    config.body = JSON.stringify(body);
-  }
-
-  const res = await fetch(url, config);
-
-  if (!res.ok) {
+  try {
+    const res = await axios({
+      url,
+      method,
+      headers: {
+        'Content-Type': 'application/json',
+        ...headers,
+      },
+      data,
+    });
+    return res.data;
+  } catch (error) {
     let errorMessage = 'An error occurred';
-    try {
-        const errorData = await res.json();
-        errorMessage = errorData.message || errorMessage;
-    } catch {
-        // failed to parse json
+    if (axios.isAxiosError(error)) {
+      errorMessage = error.response?.data?.message || error.message || errorMessage;
+    } else if (error instanceof Error) {
+      errorMessage = error.message;
     }
     throw new Error(errorMessage);
   }
-
-  // Handle 204 No Content
-  if (res.status === 204) {
-    return {} as T;
-  }
-
-  return res.json();
 }
 
 export const api = {
-    get: <T>(url: string, headers?: Record<string, string>) => apiRequest<T>(url, 'GET', undefined, headers),
-    post: <T>(url: string, body: unknown, headers?: Record<string, string>) => apiRequest<T>(url, 'POST', body, headers),
-    put: <T>(url: string, body: unknown, headers?: Record<string, string>) => apiRequest<T>(url, 'PUT', body, headers),
-    delete: <T>(url: string, headers?: Record<string, string>) => apiRequest<T>(url, 'DELETE', undefined, headers),
+  get: <T>(url: string, headers?: Record<string, string>) => apiRequest<T>(url, 'GET', undefined, headers),
+  post: <T>(url: string, body: unknown, headers?: Record<string, string>) => apiRequest<T>(url, 'POST', body, headers),
+  put: <T>(url: string, body: unknown, headers?: Record<string, string>) => apiRequest<T>(url, 'PUT', body, headers),
+  delete: <T>(url: string, headers?: Record<string, string>) => apiRequest<T>(url, 'DELETE', undefined, headers),
 };
