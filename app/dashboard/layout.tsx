@@ -12,7 +12,7 @@ import {
     DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Menu, Home, LogOut, Package2 } from 'lucide-react';
+import { Menu, Home, LogOut, Package2, Users, Shield, Key, FileBadge } from 'lucide-react';
 import Link from 'next/link';
 import { api } from '@/lib/api';
 import { cn } from '@/lib/utils';
@@ -37,6 +37,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         { href: '/dashboard/domains', label: 'Domains', icon: Package2 },
     ];
 
+    const adminLinks = [
+        { href: '/dashboard/admin/users', label: 'Users', icon: Users },
+        { href: '/dashboard/admin/roles', label: 'Roles', icon: Shield },
+        { href: '/dashboard/admin/permissions', label: 'Permissions', icon: Key },
+        { href: '/dashboard/admin/scopes', label: 'Scopes', icon: FileBadge },
+    ];
+
     return (
         <div className="grid min-h-screen w-full md:grid-cols-[220px_1fr] lg:grid-cols-[280px_1fr]">
             <div className="hidden border-r bg-muted/40 md:block">
@@ -56,6 +63,22 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                                     className={cn(
                                         "flex items-center gap-3 rounded-lg px-3 py-2 transition-all hover:text-primary",
                                         pathname === link.href ? "bg-muted text-primary" : "text-muted-foreground"
+                                    )}
+                                >
+                                    <link.icon className="h-4 w-4" />
+                                    {link.label}
+                                </Link>
+                            ))}
+                            <div className="mt-4 px-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                                Administration
+                            </div>
+                            {adminLinks.map((link) => (
+                                <Link
+                                    key={link.href}
+                                    href={link.href}
+                                    className={cn(
+                                        "flex items-center gap-3 rounded-lg px-3 py-2 transition-all hover:text-primary",
+                                        pathname.startsWith(link.href) ? "bg-muted text-primary" : "text-muted-foreground"
                                     )}
                                 >
                                     <link.icon className="h-4 w-4" />
@@ -88,6 +111,22 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                                         className={cn(
                                             "mx-[-0.65rem] flex items-center gap-4 rounded-xl px-3 py-2 hover:text-foreground",
                                             pathname === link.href ? "bg-muted text-foreground" : "text-muted-foreground"
+                                        )}
+                                    >
+                                        <link.icon className="h-5 w-5" />
+                                        {link.label}
+                                    </Link>
+                                ))}
+                                <div className="mt-4 px-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                                    Administration
+                                </div>
+                                {adminLinks.map((link) => (
+                                    <Link
+                                        key={link.href}
+                                        href={link.href}
+                                        className={cn(
+                                            "mx-[-0.65rem] flex items-center gap-4 rounded-xl px-3 py-2 hover:text-foreground",
+                                            pathname.startsWith(link.href) ? "bg-muted text-foreground" : "text-muted-foreground"
                                         )}
                                     >
                                         <link.icon className="h-5 w-5" />
