@@ -16,6 +16,13 @@ export function proxy(request: NextRequest) {
             return NextResponse.redirect(dashboardUrl);
         }
     }
+    if (pathname.includes('admin')) {
+        const role = request.cookies.get('role')?.value;
+        if (role !== 'Administrator') {
+            const dashboardUrl = new URL('/dashboard', request.url);
+            return NextResponse.redirect(dashboardUrl);
+        }
+    }
 
     return NextResponse.next();
 }

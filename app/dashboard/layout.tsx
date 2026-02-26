@@ -1,5 +1,6 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
@@ -30,7 +31,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             console.error('Logout failed', err);
         }
     };
-    const avatar = typeof window !== 'undefined' ? localStorage.getItem('avatar_uri') : null;
+    const [avatar, setAvatar] = useState<string | null>(null);
+
+    useEffect(() => {
+        setAvatar(localStorage.getItem('avatar_uri'));
+    }, []);
     const navLinks = [
         { href: '/dashboard', label: 'Dashboard', icon: Home },
         { href: '/dashboard/apps', label: 'Apps', icon: Package2 },
@@ -143,7 +148,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                         <DropdownMenuTrigger asChild>
                             <Button variant="secondary" size="icon" className="rounded-full">
                                 <Avatar className='h-9 w-9'>
-                                    <AvatarImage src={`${process.env.NEXT_PUBLIC_AUTH_API_URL}${avatar}` || ''} alt="@user" />
+                                    {avatar ? <AvatarImage src={`${process.env.NEXT_PUBLIC_AUTH_API_URL}${avatar}`} alt="@user" /> : null}
                                     <AvatarFallback>U</AvatarFallback>
                                 </Avatar>
                                 <span className="sr-only">Toggle user menu</span>

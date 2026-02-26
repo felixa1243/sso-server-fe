@@ -2,7 +2,10 @@
 
 import { useState } from 'react';
 import { api } from '@/lib/api';
+import axios from 'axios';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import {
     Table,
     TableBody,
@@ -19,7 +22,7 @@ import {
     DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { MoreHorizontal, Shield, Ban, Trash2, Gavel } from 'lucide-react';
+import { MoreHorizontal, Shield, Ban, Trash2, Gavel, Plus } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -34,6 +37,16 @@ export default function UsersClient({ initialUsers, availableRoles }: { initialU
 
     const [isPunishmentOpen, setIsPunishmentOpen] = useState(false);
     const [punishments, setPunishments] = useState<any[]>([]);
+
+    const [isAddUserOpen, setIsAddUserOpen] = useState(false);
+    const [newUserForm, setNewUserForm] = useState({
+        fullname: '',
+        email: '',
+        password: '',
+        password_confirm: '',
+        role: ''
+    });
+    const [isSubmittingUser, setIsSubmittingUser] = useState(false);
 
     const handleBanToggle = async (user: any) => {
         try {
@@ -122,6 +135,33 @@ export default function UsersClient({ initialUsers, availableRoles }: { initialU
         } catch (e) {
             console.error(e);
             alert('Failed to issue punishment');
+        }
+    };
+
+    const handleAddUser = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setIsSubmittingUser(true);
+        try {
+            if (newUserForm.password !== newUserForm.password_confirm) {
+                alert("Passwords do not match");
+                setIsSubmittingUser(false);
+                return;
+            }
+            const res = await api.post<any>('/api/admin/users', newUserForm);
+            setUsers([...users, res]);
+            setIsAddUserOpen(false);
+            setNewUserForm({ fullname: '', email: '', password: '', password_confirm: '', role: '' });
+        } catch (e: unknown) {
+            console.error(e);
+            if (axios.isAxiosError(e)) {
+                alert('Failed to create user: ' + (e.response?.data?.message || e.message));
+            } else if (e instanceof Error) {
+                alert('Failed to create user: ' + e.message);
+            } else {
+                alert('Failed to create user: Unknown error');
+            }
+        } finally {
+            setIsSubmittingUser(false);
         }
     };
 
@@ -259,6 +299,54 @@ export default function UsersClient({ initialUsers, availableRoles }: { initialU
                             </Table>
                         )}
                     </div>
+                </DialogContent>
+            </Dialog>
+
+            {/* Add User Modal */}
+            <Dialog open={isAddUserOpen} onOpenChange={setIsAddUserOpen}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Add New User</DialogTitle>
+                        <DialogDescription>Manually create a new user account.</DialogDescription>
+                    </DialogHeader>
+                    <form onSubmit={handleAddUser}>
+                        <div className="py-4 space-y-4">
+                            <div className="space-y-2">
+                                <Label htmlFor="new-fullname">Full Name</Label>
+                                <Input id="new-fullname" value={newUserForm.fullname} onChange={(e) => setNewUserForm({ ...newUserForm, fullname: e.target.value })} required />
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="new-email">Email</Label>
+                                <Input id="new-email" type="email" value={newUserForm.email} onChange={(e) => setNewUserForm({ ...newUserForm, email: e.target.value })} required />
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="new-password">Password</Label>
+                                <Input id="new-password" type="password" value={newUserForm.password} onChange={(e) => setNewUserForm({ ...newUserForm, password: e.target.value })} required minLength={8} />
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="new-password-confirm">Confirm Password</Label>
+                                <Input id="new-password-confirm" type="password" value={newUserForm.password_confirm} onChange={(e) => setNewUserForm({ ...newUserForm, password_confirm: e.target.value })} required minLength={8} />
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="new-role">Role (Optional)</Label>
+                                <select
+                                    id="new-role"
+                                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                                    value={newUserForm.role}
+                                    onChange={(e) => setNewUserForm({ ...newUserForm, role: e.target.value })}
+                                >
+                                    <option value="">Default (Blog:Reader)</option>
+                                    <option value="Blog:Editor">Editor</option>
+                                    <option value="Developer">Developer</option>
+                                    <option value="SuperAdmin">SuperAdmin</option>
+                                </select>
+                            </div>
+                        </div>
+                        <DialogFooter>
+                            <Button type="button" variant="outline" onClick={() => setIsAddUserOpen(false)}>Cancel</Button>
+                            <Button type="submit" disabled={isSubmittingUser}>{isSubmittingUser ? 'Saving...' : 'Save User'}</Button>
+                        </DialogFooter>
+                    </form>
                 </DialogContent>
             </Dialog>
         </div>
